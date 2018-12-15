@@ -26,12 +26,12 @@ clearvars
 
 
 
-File='/SinaMc/University/WUR/WURcode/Data24_1/fragFiltered'; % address of the input file
+File='/SinaMc/University/WUR/WURcode/Data24_2/fragFiltered'; % address of the input file
 a1=readtable(File,'Delimiter','\t'); %the first line is ignored
 fragment_cell=table2cell(a1);  % each row of the file is an element of cell
 
 N=size(fragment_cell,1);   % the number of reads i.e. row in fragment file
-l=175;          % number of SNPs i.e. haplotype length
+l=177;          % number of SNPs i.e. haplotype length
 
 R=sparse(N,l); % the final read matrix
 
@@ -81,4 +81,4 @@ end
 
 clearvars -except R  fragment_cell
 
-save('24_1/R24_1.mat','-v7.3')
+save('/SinaMc/University/WUR/WURcode/Data24_2/R24_2.mat','-v7.3')

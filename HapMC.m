@@ -1,8 +1,3 @@
-clearvars
-load('/SinaMc/University/WUR/WURcode/Data24_1/R24_1.mat')
-
-position_var_table=readtable('/SinaMc/University/WUR/WURcode/Data24_1/pos_freebayes','Delimiter','\t');
-position_var=table2array(position_var_table);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Haplotyping using HapSVT
@@ -20,18 +15,22 @@ position_var=table2array(position_var_table);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+clearvars
+load('/SinaMc/University/WUR/WURcode/Data24_2/R24_2.mat')
+% R=R(:,1:70);
+
+position_var_table=readtable('/SinaMc/University/WUR/WURcode/Data24_2/pos_freebayes','Delimiter','\t');
+position_var=table2array(position_var_table);
+
 %%% removing those caloumn which no  read covered it.
 % maybe it covered at first to be used in freebayes, maybe some of reads covering less than two snp
 %are removed
-%  R=R(1:50,1:50);
-
-
 nonzero_col_idx=find(sum(abs(R))~=0);%index of those columns with at least one elemnt
 R_in=R(:,nonzero_col_idx);
 
 
 
-fileID = fopen('out/hap_opt24_1.txt','w'); % The output file
+fileID = fopen('/SinaMc/University/WUR/WURcode/Data24_2/out_opt/hap_opt24_2.txt','w'); % The output file
 
 block_idx=0;columnNumber_blocks_accm=0;rowNumber_blocks_acc=0; % just for starting
 idxi_vector=[];idxj_vector=[];block_num_col=[]; start=1;block_idx=0;
@@ -82,21 +81,20 @@ while columnNumber_blocks_accm(end)<size(R_in,2)-1  % run for each block until l
         
         
         if block_idx==1 %for reporting the index of estimated allele of variant to not lossing
-                        %the index in overall, we remove some columns
-        %columnNumber_blocks_accm:  these number are after removing empty columns
-        %indces_block:  these number is before removing empty columns
+            %the index in overall, we remove some columns
+            %columnNumber_blocks_accm:  these number are after removing empty columns
+            %indces_block:  these number is before removing empty columns
             indces_block=nonzero_col_idx(1:columnNumber_blocks_accm(1));
         else
             indces_block=nonzero_col_idx(columnNumber_blocks_accm(block_idx-1)+1:columnNumber_blocks_accm(block_idx));
         end
         %H_with_ind=[indces_block',H'];
         H_with_pos=[position_var(indces_block),H'];
-
-        fprintf(fileID,'Block\t%d\t%d\t%d\n',position_var(1),indces_block(1),indces_block(end));
+        fprintf(fileID,'BLOCK\t%d\t%d\t%d\n',position_var(1),indces_block(1),indces_block(end));
         fprintf(fileID,'.\t%d\t%d\t%d\t%d\n',H_with_pos');
         
-%         fprintf(fileID,'Block len=%d\n',idxj);
-%         fprintf(fileID,'%d\t%d\n',H');
+        %         fprintf(fileID,'Block len=%d\n',idxj);
+        %         fprintf(fileID,'%d\t%d\n',H');
     end
 end
 fclose(fileID);
