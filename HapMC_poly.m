@@ -16,10 +16,15 @@
 
 
 clearvars
-load('/SinaMc/University/WUR/WURcode/Data24_2/R24_2.mat')
-% R=R(:,1:70);
 
-position_var_table=readtable('/SinaMc/University/WUR/WURcode/Data24_2/pos_freebayes','Delimiter','\t');
+pipname='25_2';
+adress_prefx='/SinaMc/University/WUR/WURcode/Data';
+adress=strcat(adress_prefx,pipname);
+load(strcat(adress,'/R',pipname,'.mat'))
+% R=R(:,1:20);
+R_full=full(R);
+
+position_var_table=readtable(strcat(adress,'/pos_freebayes'),'Delimiter','\t');
 position_var=table2array(position_var_table);
 
 %%% removing those caloumn which no  read covered it.
@@ -28,9 +33,9 @@ position_var=table2array(position_var_table);
 nonzero_col_idx=find(sum(abs(R))~=0);%index of those columns with at least one elemnt
 R_in=R(:,nonzero_col_idx);
 
+tic
 
-
-fileID = fopen('/SinaMc/University/WUR/WURcode/Data24_2/out_opt/hap_opt24_2.txt','w'); % The output file
+fileID = fopen(strcat(adress,'/hap_svt',pipname,'.txt'),'w'); % The output file
 
 block_idx=0;columnNumber_blocks_accm=0;rowNumber_blocks_acc=0; % just for starting
 idxi_vector=[];idxj_vector=[];block_num_col=[]; start=1;block_idx=0;
@@ -61,19 +66,21 @@ while columnNumber_blocks_accm(end)<size(R_in,2)-1  % run for each block until l
         %processing of read matrix block
         nonzeor_idx_row=find(sum(abs(R_block'))>1); % those rows with at least two nonzero
         R_used=R_block(nonzeor_idx_row,:);
-        %%%%% haplotpying  using HapOPT
-        [X,S_opt,Y,dist] = OptSpace(R_used,3,500,.00001); %(R,[],500,.001)  matrix, rank,number iter, toleranc
-        X_opt=X*S_opt*Y';
-        %%% SVT
+        [u_usd,S_usd,v_usd]=svds(R_used,3); R_used3=u_usd*S_usd*v_usd';
+
+% % %         %%%%% haplotpying  using HapOPT
+% % %         [X,S_opt,Y,dist] = OptSpace(R_used3,3,500,.00001); %(R,[],500,.001)  matrix, rank,number iter, toleranc
+% % %         X_opt=X*S_opt*Y';
+% % %         A=X_opt';
         
-        % % % %%% Hapsvt
-        % % Omega=find(R_used);
-        % % Rt=(R_used+1)/2;
-        % % mu_final=.01;%100*max(N,l);
-        % % [U,S,V,numiter]= FPC(size(R_used),Omega,Rt(Omega),mu_final);  %FPC(n,Omega,b,mu_final,maxiter,tol)
-        % % X1=U*S*V';[u_sv,S_sv,v_sv]=svds(X1,3); X_svt=u_sv*S_sv*v_sv';
-        % % A=X_svt';
-        A=X_opt';
+        %%%%% haplotpying  using 
+        omega=find(R_used);
+        [U,S,V,numiter]= FPC(size(R_used),omega,R_used3(omega),.01);  %FPC(n,Omega,b,mu_final,maxiter,tol)
+        X1=U*S*V';[u_sv,S_sv,v_sv]=svds(X1,3); X_svt=u_sv*S_sv*v_sv';
+        A=X_svt';
+       
+        
+        
         [~,colind] = rref(A);
         Xsub = A(:, colind(1:3));
         H=Xsub'>0;
@@ -89,8 +96,9 @@ while columnNumber_blocks_accm(end)<size(R_in,2)-1  % run for each block until l
             indces_block=nonzero_col_idx(columnNumber_blocks_accm(block_idx-1)+1:columnNumber_blocks_accm(block_idx));
         end
         %H_with_ind=[indces_block',H'];
-        H_with_pos=[position_var(indces_block),H'];
-        fprintf(fileID,'BLOCK\t%d\t%d\t%d\n',position_var(1),indces_block(1),indces_block(end));
+        position_var_block=position_var(indces_block);
+        H_with_pos=[position_var_block,H'];
+        fprintf(fileID,'BLOCK\t%d\t%d\t%d\n',position_var_block(1),indces_block(1),indces_block(end));
         fprintf(fileID,'.\t%d\t%d\t%d\t%d\n',H_with_pos');
         
         %         fprintf(fileID,'Block len=%d\n',idxj);
@@ -99,7 +107,7 @@ while columnNumber_blocks_accm(end)<size(R_in,2)-1  % run for each block until l
 end
 fclose(fileID);
 
-
+toc
 % % %norm(R_used(Omega)- X_svt(Omega))
 % % R_logc=R>0;
 % % a1=sum(R_logc);
