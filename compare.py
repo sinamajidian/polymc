@@ -3,15 +3,12 @@
 """
 This code is for comparing the estimated diploid haplotype blocks with a grand truth.
 
-
-
 Fosmid  > indx
-python3  compare.py "/SinaMc/code1new/fosmid/folder/"  "chr22.valid.master"  "chr22_hap_opt.txt" "chr22.hap"
+python3  compare.py "/SinaMc/code1new/fosmid/folder/"  "chr21.valid.master"  "chr21_hap_opt.txt" "chr21.hap"
 
 
 Ashkenazim > variant
-python3  compare.py "/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "haplotype_hapcut_60x" "HG002_22.vcf"
-python3  compare.py "/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "HG002_hap_opt_60.txt" "HG002_22.vcf"
+python3  compare.py "/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "HG002_hap_opt_60.txt" "haplotype_hapcut_60x" "HG002_22.vcf"
 
 
 
@@ -308,11 +305,17 @@ if __name__ == "__main__":
 
 
 
-	dic_metrics = {'length_pure':[]}
-	dic_metrics['correct_alleles'] = []
-	dic_metrics['switch'] = []
-	dic_metrics['switch_short'] = []
-	dic_metrics['switch_long'] = []
+	dic_metrics1 = {'length_pure':[]}
+	dic_metrics1['correct_alleles'] = []
+	dic_metrics1['switch'] = []
+	dic_metrics1['switch_short'] = []
+	dic_metrics1['switch_long'] = []
+
+	dic_metrics2 = {'length_pure': []}
+	dic_metrics2['correct_alleles'] = []
+	dic_metrics2['switch'] = []
+	dic_metrics2['switch_short'] = []
+	dic_metrics2['switch_long'] = []
 
 	dic_metrics_cm = {'length_pure': []}
 	dic_metrics_cm['correct_alleles'] = []
@@ -326,37 +329,56 @@ if __name__ == "__main__":
 		[dic_block_estimated_truth, allele_origin_dic, metrics] = compare_dics(dic_hap_truth, dic_block)
 		[dic_block_estimated_truth_cm, allele_origin_dic_cm, metrics_cm]= compare_dics_common(dic_hap_truth, dic_block, set_idx2)
 		# metrics = [num_correct_alleles, counts['switch'], counts['short_switch'], counts['long_switch']]
-
-		dic_metrics['length_pure'].append(len(dic_block_estimated_truth))
-		dic_metrics['correct_alleles'].append(metrics[0])
-		dic_metrics['switch'].append(metrics[1])
-		dic_metrics['switch_short'].append(metrics[2])
-		dic_metrics['switch_long'].append(metrics[3])
+		dic_metrics1['length_pure'].append(len(dic_block_estimated_truth))
+		dic_metrics1['correct_alleles'].append(metrics[0])
+		dic_metrics1['switch'].append(metrics[1])
+		dic_metrics1['switch_short'].append(metrics[2])
+		dic_metrics1['switch_long'].append(metrics[3])
 
 		dic_metrics_cm['length_pure'].append(len(dic_block_estimated_truth_cm))
 		dic_metrics_cm['correct_alleles'].append(metrics_cm[0])
 		dic_metrics_cm['switch'].append(metrics_cm[1])
 		dic_metrics_cm['switch_short'].append(metrics_cm[2])
 		dic_metrics_cm['switch_long'].append(metrics_cm[3])
-	print('********')
-	blocks_rr = [float(x)/y for x, y in zip(dic_metrics['correct_alleles'], dic_metrics['length_pure']) if y != 0]
-	print('mean of rr all blocks is ', np.round(np.mean(blocks_rr), 4))
-	blocks_swer = [float(x) / y for x, y in zip(dic_metrics['switch'], dic_metrics['length_pure']) if y != 0]
-	print('mean of swer  all blocks is ', np.round(np.mean(blocks_swer), 4))
-	blocks_swer_short = [float(x) / y for x, y in zip(dic_metrics['switch_short'], dic_metrics['length_pure']) if y != 0]
-	print('mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short), 4))
-	blocks_swer_long = [float(x) / y for x, y in zip(dic_metrics['switch_long'], dic_metrics['length_pure']) if y != 0]
-	print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long), 4))
 
-	print ('********')
+	for num_block, dic_block in dic_hap_estimated_alg2.items():
+		[dic_block_estimated_truth, allele_origin_dic, metrics] = compare_dics(dic_hap_truth, dic_block)
+		dic_metrics2['length_pure'].append(len(dic_block_estimated_truth))
+		dic_metrics2['correct_alleles'].append(metrics[0])
+		dic_metrics2['switch'].append(metrics[1])
+		dic_metrics2['switch_short'].append(metrics[2])
+		dic_metrics2['switch_long'].append(metrics[3])
+
+
+	print('******** First  OPT ')
+	blocks_rr1 = [float(x)/y for x, y in zip(dic_metrics1['correct_alleles'], dic_metrics1['length_pure']) if y != 0]
+	print('mean of rr all blocks is ', np.round(np.mean(blocks_rr1), 4))
+	blocks_swer1 = [float(x) / y for x, y in zip(dic_metrics1['switch'], dic_metrics1['length_pure']) if y != 0]
+	print('mean of swer  all blocks is ', np.round(np.mean(blocks_swer1), 4))
+	blocks_swer_short1 = [float(x) / y for x, y in zip(dic_metrics1['switch_short'], dic_metrics1['length_pure']) if y != 0]
+	print('mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short1), 4))
+	blocks_swer_long1 = [float(x) / y for x, y in zip(dic_metrics1['switch_long'], dic_metrics1['length_pure']) if y != 0]
+	print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long1), 4))
+
+	print('******** Second  CUT')
+	blocks_rr2 = [float(x) / y for x, y in zip(dic_metrics2['correct_alleles'], dic_metrics2['length_pure']) if y != 0]
+	print('mean of rr all blocks is ', np.round(np.mean(blocks_rr2), 4))
+	blocks_swer2 = [float(x) / y for x, y in zip(dic_metrics2['switch'], dic_metrics2['length_pure']) if y != 0]
+	print('mean of swer  all blocks is ', np.round(np.mean(blocks_swer2), 4))
+	blocks_swer_short2 = [float(x) / y for x, y in zip(dic_metrics2['switch_short'], dic_metrics2['length_pure']) if y != 0]
+	print('mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short2), 4))
+	blocks_swer_long2 = [float(x) / y for x, y in zip(dic_metrics2['switch_long'], dic_metrics2['length_pure']) if y != 0]
+	print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long2), 4))
+
+	print ('******** Common for OPT')
 	blocks_rr_cm = [float(x) / y for x, y in zip(dic_metrics_cm['correct_alleles'], dic_metrics_cm['length_pure']) if y != 0]
-	print('common mean of rr all blocks is ', np.round(np.mean(blocks_rr_cm), 4))
+	print('mean of rr all blocks is ', np.round(np.mean(blocks_rr_cm), 4))
 	blocks_swer_cm = [float(x) / y for x, y in zip(dic_metrics_cm['switch'], dic_metrics_cm['length_pure']) if y != 0]
-	print('commonmean of swer  all blocks is ', np.round(np.mean(blocks_swer_cm), 4))
+	print('mean of swer  all blocks is ', np.round(np.mean(blocks_swer_cm), 4))
 	blocks_swer_short_cm = [float(x) / y for x, y in zip(dic_metrics_cm['switch_short'], dic_metrics_cm['length_pure']) if y != 0]
-	print('common mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short_cm), 4))
+	print('mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short_cm), 4))
 	blocks_swer_long_cm = [float(x) / y for x, y in zip(dic_metrics_cm['switch_long'], dic_metrics_cm['length_pure']) if y != 0]
-	print('common mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long_cm), 4))
+	print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long_cm), 4))
 
 
 	# block_num_correct_alleles, block_length_pure, block_num_switch, block_num_switch_short, block_num_switch_long, span_block_adjusted, span_block_adjusted_list
