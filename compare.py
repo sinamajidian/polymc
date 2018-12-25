@@ -6,14 +6,12 @@ This code is for comparing the estimated diploid haplotype blocks with a grand t
 
 
 Fosmid  > indx
-"/SinaMc/code1new/fosmid/folder/"  "chr22.valid.master" "chr22_hap_opt.txt"
-"/SinaMc/code1new/fosmid/folder/"  "chr22.valid.master" "chr22.hap"
+python3  compare.py "/SinaMc/code1new/fosmid/folder/"  "chr22.valid.master"  "chr22_hap_opt.txt" "chr22.hap"
 
 
 Ashkenazim > variant
-"/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "haplotype_hapcut_20x" "HG002_22.vcf"
-"/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "HG002_hap_opt_60.txt" "HG002_22.vcf"
-
+python3  compare.py "/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "haplotype_hapcut_60x" "HG002_22.vcf"
+python3  compare.py "/SinaMc/code1new/Ashkenazim/" "HG002_phased_22.vcf" "HG002_hap_opt_60.txt" "HG002_22.vcf"
 
 
 
@@ -107,6 +105,7 @@ def parse_hap_estimated_blocks(file, list_position):
 	5	0	1	chr1	805678	A	T	0/1:21:70	0	.	100.00
 	"""
 	hap_blocks = open(file, "r")
+	set_indx = set()
 	dic_blocks = {}  # dic_blocks = {1: dic_block1, 2: dic_block2}
 	dic_block = {}  # dic_block = {2:0 , 3:1 , 28:1}
 	block_idx = 0
@@ -126,14 +125,16 @@ def parse_hap_estimated_blocks(file, list_position):
 					idx = int(slices_line[0])
 					if not len(list_position):  # for comparing based on index, not variation position
 						dic_block[idx] = allele
+						set_indx.add(idx)
 					else:  # for comparing based on variation position
 						var_position = list_position[idx - 1]
+						set_indx.add(var_position)
 						dic_block[var_position] = allele
 						# For future  if len(slices_line) > 3:  # hapcut2: 4	0	1	chr1	801628	C ...
 						# var_position = int(line_slice[4])
 	block_idx += 1
 	dic_blocks[block_idx] = dic_block
-	return dic_blocks
+	return dic_blocks, set_indx
 
 
 def compare_dics(dic_truth, dic_block_estimated):
@@ -146,7 +147,7 @@ def compare_dics(dic_truth, dic_block_estimated):
 	origin_allele = []
 	origin_allele_dic = {}
 	dic_block_estimated_truth = {}
-	for idx_estimated, allele_estimated in dic_block_estimated.items():
+	for idx_estimated, allele_estimated in dic_block_estimated.items(): # idx_estimated can be either indx or position
 		if idx_estimated in dic_truth:
 			dic_block_estimated_truth[idx_estimated] = allele_estimated  # create a dic of  variants in both estimated and truth
 			if allele_estimated == dic_truth[idx_estimated]:  # truth consists of one allele which assumed as paternal. hetro
@@ -171,6 +172,51 @@ def compare_dics(dic_truth, dic_block_estimated):
 					counts['long_switch'] += 1  # if MPP or PMM happens, we call it long switch
 	metrics = [num_correct_alleles, counts['switch'], counts['short_switch'], counts['long_switch']]
 	return [dic_block_estimated_truth, origin_allele_dic, metrics]
+
+
+
+
+
+def compare_dics_common(dic_truth, dic_block_estimated, set_idx2):
+	""" comaring estimated block of haplotype with truth haplotype
+	dic_block_estimated is from algorithm one
+	input: two dictionaries
+	output: some metrics
+	"""
+	counts = Counter()
+	origin_allele = []
+	origin_allele_dic = {}
+	dic_block_estimated_truth = {}
+	for idx_estimated, allele_estimated in dic_block_estimated.items():
+		if (idx_estimated in dic_truth) & (idx_estimated in set_idx2):
+			dic_block_estimated_truth[idx_estimated] = allele_estimated  # create a dic of  variants in both estimated and truth
+			if allele_estimated == dic_truth[idx_estimated]:  # truth consists of one allele which assumed as paternal. hetro
+				origin_allele_dic[idx_estimated] = 'P'
+				origin_allele.append('P')  # paternal
+				counts['isfrom_P'] += 1
+			else:
+				origin_allele_dic[idx_estimated] = 'M'
+				origin_allele.append('M')
+				counts['isfrom_M'] += 1
+	num_correct_alleles = max(counts['isfrom_P'], counts['isfrom_M'])
+
+	if num_correct_alleles > 1:
+		for indx_truth in range(len(origin_allele)):
+			if indx_truth != 0:  # for calculating number of switches, first allele is ignored.
+				if origin_allele[indx_truth] != origin_allele[indx_truth-1]:
+					counts['switch'] += 1
+			if (indx_truth != 0) and (indx_truth != len(origin_allele)-1):  # for calculating sh/lo switches, first+last allele are ignored.
+				if (origin_allele[indx_truth] != origin_allele[indx_truth-1]) and (origin_allele[indx_truth] != origin_allele[indx_truth+1]):
+					counts['short_switch'] += 1  # if MPM or PMP happens, we call it short switch
+				if (origin_allele[indx_truth] != origin_allele[indx_truth-1]) and (origin_allele[indx_truth] == origin_allele[indx_truth+1]):
+					counts['long_switch'] += 1  # if MPP or PMM happens, we call it long switch
+	metrics = [num_correct_alleles, counts['switch'], counts['short_switch'], counts['long_switch']]
+	return [dic_block_estimated_truth, origin_allele_dic, metrics]
+
+
+
+
+
 
 # def new(dic_truth, dic_block_estimated):
 #
@@ -245,31 +291,72 @@ def compare_dics(dic_truth, dic_block_estimated):
 if __name__ == "__main__":
 	address = argv[1]
 	filename_hap_truth = address+argv[2]
-	filename_hap_estimated = address+argv[3]
-	if len(argv) > 3: # for comparing based on  variation position, assign the  filename_vcf # i know that hapcut may contain
-		filename_vcf = address+argv[4]
-		list_position = parse_position_vcf(filename_vcf)
-	else:
+	filename_hap_estimated_alg1 = address+argv[3]
+	filename_hap_estimated_alg2 = address+argv[4]
+
+	if len(argv) < 6:  # for comparing based on  variation position, assign the  filename_vcf # i know that hapcut may contain
 		list_position = []
+	else:
+		filename_vcf = address + argv[5]
+		list_position = parse_position_vcf(filename_vcf)
 
 	dic_hap_truth = parse_hap_truth(filename_hap_truth)
-	dic_hap_estimated = parse_hap_estimated_blocks(filename_hap_estimated, list_position)
+	dic_hap_estimated_alg1, set_idx1 = parse_hap_estimated_blocks(filename_hap_estimated_alg1, list_position)
+	dic_hap_estimated_alg2, set_idx2 = parse_hap_estimated_blocks(filename_hap_estimated_alg2, list_position)
 
-	blocks_length_pure = []
-	blocks_num_correct_alleles = []
-	blocks_num_switch = []
-	blocks_num_switch_short = []
-	blocks_num_switch_long = []
+	# set_position_algortihm2 = set(dic_hap_estimated_alg2.keys)
+
+
+
+	dic_metrics = {'length_pure':[]}
+	dic_metrics['correct_alleles'] = []
+	dic_metrics['switch'] = []
+	dic_metrics['switch_short'] = []
+	dic_metrics['switch_long'] = []
+
+	dic_metrics_cm = {'length_pure': []}
+	dic_metrics_cm['correct_alleles'] = []
+	dic_metrics_cm['switch'] = []
+	dic_metrics_cm['switch_short'] = []
+	dic_metrics_cm['switch_long'] = []
 	# span_blocks_adjusted = []
 	# span_block_adjusted_list_all = []
-	for num_block, dic_block in dic_hap_estimated.items():
-		[dic_block_estimated_truth, allele_origin_dic, metrics]= compare_dics(dic_hap_truth, dic_block)
+
+	for num_block, dic_block in dic_hap_estimated_alg1.items():
+		[dic_block_estimated_truth, allele_origin_dic, metrics] = compare_dics(dic_hap_truth, dic_block)
+		[dic_block_estimated_truth_cm, allele_origin_dic_cm, metrics_cm]= compare_dics_common(dic_hap_truth, dic_block, set_idx2)
 		# metrics = [num_correct_alleles, counts['switch'], counts['short_switch'], counts['long_switch']]
-		blocks_length_pure.append(len(dic_block_estimated_truth))
-		blocks_num_correct_alleles.append(metrics[0])
-		blocks_num_switch.append(metrics[1])
-		blocks_num_switch_short.append(metrics[2])
-		blocks_num_switch_long.append(metrics[3])
+
+		dic_metrics['length_pure'].append(len(dic_block_estimated_truth))
+		dic_metrics['correct_alleles'].append(metrics[0])
+		dic_metrics['switch'].append(metrics[1])
+		dic_metrics['switch_short'].append(metrics[2])
+		dic_metrics['switch_long'].append(metrics[3])
+
+		dic_metrics_cm['length_pure'].append(len(dic_block_estimated_truth_cm))
+		dic_metrics_cm['correct_alleles'].append(metrics_cm[0])
+		dic_metrics_cm['switch'].append(metrics_cm[1])
+		dic_metrics_cm['switch_short'].append(metrics_cm[2])
+		dic_metrics_cm['switch_long'].append(metrics_cm[3])
+	print('********')
+	blocks_rr = [float(x)/y for x, y in zip(dic_metrics['correct_alleles'], dic_metrics['length_pure']) if y != 0]
+	print('mean of rr all blocks is ', np.round(np.mean(blocks_rr), 4))
+	blocks_swer = [float(x) / y for x, y in zip(dic_metrics['switch'], dic_metrics['length_pure']) if y != 0]
+	print('mean of swer  all blocks is ', np.round(np.mean(blocks_swer), 4))
+	blocks_swer_short = [float(x) / y for x, y in zip(dic_metrics['switch_short'], dic_metrics['length_pure']) if y != 0]
+	print('mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short), 4))
+	blocks_swer_long = [float(x) / y for x, y in zip(dic_metrics['switch_long'], dic_metrics['length_pure']) if y != 0]
+	print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long), 4))
+
+	print ('********')
+	blocks_rr_cm = [float(x) / y for x, y in zip(dic_metrics_cm['correct_alleles'], dic_metrics_cm['length_pure']) if y != 0]
+	print('common mean of rr all blocks is ', np.round(np.mean(blocks_rr_cm), 4))
+	blocks_swer_cm = [float(x) / y for x, y in zip(dic_metrics_cm['switch'], dic_metrics_cm['length_pure']) if y != 0]
+	print('commonmean of swer  all blocks is ', np.round(np.mean(blocks_swer_cm), 4))
+	blocks_swer_short_cm = [float(x) / y for x, y in zip(dic_metrics_cm['switch_short'], dic_metrics_cm['length_pure']) if y != 0]
+	print('common mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short_cm), 4))
+	blocks_swer_long_cm = [float(x) / y for x, y in zip(dic_metrics_cm['switch_long'], dic_metrics_cm['length_pure']) if y != 0]
+	print('common mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long_cm), 4))
 
 
 	# block_num_correct_alleles, block_length_pure, block_num_switch, block_num_switch_short, block_num_switch_long, span_block_adjusted, span_block_adjusted_list
@@ -285,21 +372,15 @@ if __name__ == "__main__":
 		# span_block_adjusted_list_all += span_block_adjusted_list
 	# print('number of block estimated', len(dic_hap_estimated))
 	#
-	# blocks_rr = [float(x)/y for x, y in zip(blocks_num_correct_alleles, blocks_length_pure) if y != 0]
-	# print('mean of rr all blocks is ', np.round(np.mean(blocks_rr), 4))
-	# print('number of block estimated containing estimation', len(blocks_length_pure))
+
+# print('number of block estimated containing estimation', len(blocks_length_pure))
 	#
 	#
 	# print('sum of block lengh is', sum(blocks_length_pure))
 	# print('mean of block lengh is', np.round(np.mean(blocks_length_pure), 4))
 	# print('coverage of genome is ', np.round(float(sum(blocks_length_pure))/len(dic_hap_truth),4))
 	#
-	# blocks_swer = [float(x) / y for x, y in zip(blocks_num_switch, blocks_length_pure) if y != 0]
-	# print('mean of swer  all blocks is ', np.round(np.mean(blocks_swer), 4))
-	# blocks_swer_short = [float(x) / y for x, y in zip(blocks_num_switch_short, blocks_length_pure) if y != 0]
-	# print('mean of swer short  all blocks is ', np.round(np.mean(blocks_swer_short), 4))
-	# blocks_swer_long = [float(x) / y for x, y in zip(blocks_num_switch_long, blocks_length_pure) if y != 0]
-	# print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long), 4))
+
 	# print('sum of short switches ', sum(blocks_num_switch_short))
 	# print('sum of long switches ', sum(blocks_num_switch_long))
 	# print('sum of switches ', sum(blocks_num_switch))
