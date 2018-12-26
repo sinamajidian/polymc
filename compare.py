@@ -67,22 +67,6 @@ def parse_hap_truth(file_name):
 	return dic_hap_truth
 
 
-def parse_position_vcf(file):
-	""" extracting position vcf file
-
-	input: vcf file name
-	output: a list of  variant postion
-	"""
-	vcf_file = open(file, "r")
-	list_postion_variant = []
-	for line in vcf_file:
-		if not line.startswith('#'):  # 22	17056280	.	C	A	.	.	AC=2;AF=1.00;AN=2
-			slices_line = line.strip().split("\t")
-			postion_variant = int(slices_line[1])
-			list_postion_variant.append(postion_variant)
-	return list_postion_variant
-
-
 def parse_hap_estimated_blocks(file, list_position):
 
 	""" extracting estimated haplotype blocks from  algorithm's output file
@@ -134,6 +118,22 @@ def parse_hap_estimated_blocks(file, list_position):
 	return dic_blocks, set_indx
 
 
+def parse_position_vcf(file):
+	""" extracting position vcf file
+
+	input: vcf file name
+	output: a list of  variant postion
+	"""
+	vcf_file = open(file, "r")
+	list_postion_variant = []
+	for line in vcf_file:
+		if not line.startswith('#'):  # 22	17056280	.	C	A	.	.	AC=2;AF=1.00;AN=2
+			slices_line = line.strip().split("\t")
+			postion_variant = int(slices_line[1])
+			list_postion_variant.append(postion_variant)
+	return list_postion_variant
+
+
 def compare_dics(dic_truth, dic_block_estimated):
 	""" comaring estimated block of haplotype with truth haplotype
 
@@ -171,10 +171,7 @@ def compare_dics(dic_truth, dic_block_estimated):
 	return [dic_block_estimated_truth, origin_allele_dic, metrics]
 
 
-
-
-
-def compare_dics_common(dic_truth, dic_block_estimated, set_idx2):
+def compare_dics_common(dic_truth, dic_block_est, set_idx2):
 	""" comaring estimated block of haplotype with truth haplotype
 	dic_block_estimated is from algorithm one
 	input: two dictionaries
@@ -184,7 +181,7 @@ def compare_dics_common(dic_truth, dic_block_estimated, set_idx2):
 	origin_allele = []
 	origin_allele_dic = {}
 	dic_block_estimated_truth = {}
-	for idx_estimated, allele_estimated in dic_block_estimated.items():
+	for idx_estimated, allele_estimated in dic_block_est.items():
 		if (idx_estimated in dic_truth) & (idx_estimated in set_idx2):
 			dic_block_estimated_truth[idx_estimated] = allele_estimated  # create a dic of  variants in both estimated and truth
 			if allele_estimated == dic_truth[idx_estimated]:  # truth consists of one allele which assumed as paternal. hetro
@@ -211,36 +208,37 @@ def compare_dics_common(dic_truth, dic_block_estimated, set_idx2):
 	return [dic_block_estimated_truth, origin_allele_dic, metrics]
 
 
+def compare_dics_qan(dic_hap_truth, dic_block_est_truth, allele_origin_dic):
+	counts = Counter()
+	if len(dic_block_estimated_truth) > 0:  # create blocks with no switch. The last two show that a switch exists.
+		if ('P' in allele_origin_dic.values()) and ('M' in allele_origin_dic.values()):
+			position_block = np.sort(list(dic_block_est_truth.keys()))
+			for idx_pos, position in enumerate(position_block):
+				if not idx_pos:  # for first  idx_pos
+					dic_blocks_no_switch = {}
+					dic_in = {}
+					dic_in[position] = dic_block_est_truth[position]
+				else:
+					if allele_origin_dic[position] == allele_origin_dic[position_block[idx_pos - 1]]:  # No switch
+						dic_in[position] = dic_block_est_truth[position] # add one by one
+					else:  # untill a switch occurs. Then, close  dic_in and store it and create a new dic_in.
+						counts['num_dicin'] += 1
+						dic_blocks_no_switch[counts['num_dicin']] = dic_in
+						dic_in = {}
+						dic_in[position] = dic_block_est_truth[position]
+			counts['num_dicin'] += 1
+			dic_blocks_no_switch[counts['num_dicin']] = dic_in
+		else:
+			dic_blocks_no_switch = dic_block_est_truth
+	qan = 0
+	return qan
+	# 	span_block_adjusted_list = []
+	# 	dic_blocks_no_switch = {}
 
 
 
 
-# def new(dic_truth, dic_block_estimated):
-#
-#
-# 	if len(allele_origin_dic) == len(dic_block_estimated_in_truth):
-# 		errorr = 1
-# 		pass
-# 	span_block_adjusted_list = []
-# 	dic_blocks_no_switch = {}
-# 	if (len(dic_block_estimated_in_truth) > 1) and (counts['switch'] > 0): # create blocks with no switch.
-# 		start = True
-# 		for idx_pos, position  in enumerate(position_estimated_in_truth):
-# 			# for idx_estimated, allele_estimated in dic_block_estimated_in_truth.items():
-# 			if start:  # for first of idx_estimated in this block
-# 				dic_blocks_no_switch = {}
-# 				dic_in = {}
-# 				dic_in[position] = dic_block_estimated_in_truth[position]
-# 				start = False
-# 			else:  	# for rest of idx_estimated in this block
-# 				if allele_origin_dic[position] == allele_origin_dic[position_estimated_in_truth[idx_pos-1]]:  # No switch
-# 					dic_in[position] = dic_block_estimated_in_truth[position]
-# 				else:  # close the dic_in and store it and create a new dic_in
-# 					if len(dic_in) > 1:
-# 						counts['Number_of_dicin'] += 1
-# 						dic_blocks_no_switch[counts['Number_of_dicin']] = dic_in
-# 					dic_in = {}
-# 					dic_in[position] = dic_block_estimated_in_truth[position]
+
 # 		# age akhari  in	 else bashe chi dobar dic_in add shode >> moshkeli  pish nemiad, hade aghal tool yek mishe
 # 		if len(dic_in) > 1:
 # 			counts['Number_of_dicin'] += 1  # for the last one
@@ -281,6 +279,10 @@ def compare_dics_common(dic_truth, dic_block_estimated, set_idx2):
 # 		span_block_adjusted = 0
 #
 #
+# 	if len(allele_origin_dic) == len(dic_block_estimated_in_truth):
+# 		errorr = 1
+# 		pass
+
 #
 # 	return [num_correct_alleles, , counts['switch'], counts['short_switch'], counts['long_switch'], span_block_adjusted, span_block_adjusted_list]
 
@@ -341,6 +343,10 @@ if __name__ == "__main__":
 		dic_metrics_cm['switch_short'].append(metrics_cm[2])
 		dic_metrics_cm['switch_long'].append(metrics_cm[3])
 
+		qan = compare_dics_qan(dic_hap_truth, dic_block_estimated_truth, allele_origin_dic)
+
+
+
 	for num_block, dic_block in dic_hap_estimated_alg2.items():
 		[dic_block_estimated_truth, allele_origin_dic, metrics] = compare_dics(dic_hap_truth, dic_block)
 		dic_metrics2['length_pure'].append(len(dic_block_estimated_truth))
@@ -348,6 +354,9 @@ if __name__ == "__main__":
 		dic_metrics2['switch'].append(metrics[1])
 		dic_metrics2['switch_short'].append(metrics[2])
 		dic_metrics2['switch_long'].append(metrics[3])
+
+
+
 
 
 	print('******** First  OPT ')
