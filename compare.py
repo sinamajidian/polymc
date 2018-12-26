@@ -208,35 +208,39 @@ def compare_dics_common(dic_truth, dic_block_est, set_idx2):
 	return [dic_block_estimated_truth, origin_allele_dic, metrics]
 
 
-def compare_dics_qan(dic_hap_truth, dic_block_est_truth, allele_origin_dic):
-	counts = Counter()
-	if len(dic_block_estimated_truth) > 0:  # create blocks with no switch. The last two show that a switch exists.
-		if ('P' in allele_origin_dic.values()) and ('M' in allele_origin_dic.values()):
-			position_block = np.sort(list(dic_block_est_truth.keys()))
-			for idx_pos, position in enumerate(position_block):
-				if not idx_pos:  # for first  idx_pos
-					dic_blocks_no_switch = {}
-					dic_in = {}
-					dic_in[position] = dic_block_est_truth[position]
-				else:
-					if allele_origin_dic[position] == allele_origin_dic[position_block[idx_pos - 1]]:  # No switch
-						dic_in[position] = dic_block_est_truth[position] # add one by one
-					else:  # untill a switch occurs. Then, close  dic_in and store it and create a new dic_in.
-						counts['num_dicin'] += 1
-						dic_blocks_no_switch[counts['num_dicin']] = dic_in
-						dic_in = {}
-						dic_in[position] = dic_block_est_truth[position]
-			counts['num_dicin'] += 1
-			dic_blocks_no_switch[counts['num_dicin']] = dic_in
-		else:
-			dic_blocks_no_switch = dic_block_est_truth
-	qan = 0
-	return qan
-	# 	span_block_adjusted_list = []
+
+def calculate_adj_span(dic_block_estimated_truth1, list_postion_truth):
+	""" to calculate adjusted span of block based on Duitama 2011
+
+	Input: a dicitonaary of a block contianing just those variant which also exist in truth
+	output: span_block_adjusted
+
+	Nucleic Acids Research, 2012, Vol. 40, No. 5 2045
+	No just for ashkez data ??
+	"""
+	list_position_block = list(dic_block_estimated_truth1.keys())
+	span_block = list_position_block[-1] - list_position_block[0]  # duitama 2011
+	positions_truth_sorted = np.sort(list_postion_truth)
+	start_position = positions_truth_sorted > list_position_block[0] - 1
+	end_position = positions_truth_sorted < list_position_block[-1] + 1
+	number_snps_truth_within_block = sum([i and j for i, j in zip(start_position, end_position)])
+	propotion_phased = float(len(dic_block_estimated_truth1))/number_snps_truth_within_block
+	span_block_adjusted = np.round(span_block * propotion_phased,4)
+	#else:  # variant position based ??
+	return span_block_adjusted
+
+
+
+
+# 	span_block_adjusted_list = []
 	# 	dic_blocks_no_switch = {}
 
 
+#	if len(list_postion_block):
 
+#
+#
+#
 
 
 # 		# age akhari  in	 else bashe chi dobar dic_in add shode >> moshkeli  pish nemiad, hade aghal tool yek mishe
@@ -264,19 +268,6 @@ def compare_dics_qan(dic_hap_truth, dic_block_est_truth, allele_origin_dic):
 #
 # 		# a =  dic_blocks_no_switch
 # 	list_postion_block = list(dic_block_estimated.keys())
-# 	if len(list_postion_block):
-# 		span_block = list_postion_block[-1] - list_postion_block[0]  # duitama 2011
-# 		list_postion_truth = np.array(list(dic_truth.keys()))
-# 		start_position = list_postion_truth > list_postion_block[0]-1
-# 		end_position = list_postion_truth < list_postion_block[-1]+1
-# 		number_snps_truth_within_block = sum([i and j for i, j in zip(start_position, end_position)])
-# 		if counts['block_length_pure'] != 0:
-# 			propotion_phased = float(number_snps_truth_within_block)/counts['block_length_pure']
-# 		else:
-# 			propotion_phased = 0
-# 		span_block_adjusted = span_block * propotion_phased
-# 	else:
-# 		span_block_adjusted = 0
 #
 #
 # 	if len(allele_origin_dic) == len(dic_block_estimated_in_truth):
@@ -285,6 +276,41 @@ def compare_dics_qan(dic_hap_truth, dic_block_est_truth, allele_origin_dic):
 
 #
 # 	return [num_correct_alleles, , counts['switch'], counts['short_switch'], counts['long_switch'], span_block_adjusted, span_block_adjusted_list]
+
+
+
+
+def extract_noswitch_blocks(dic_block_est_truth, allele_origin_dic):
+	"""  extract no switch blocks from a block
+
+	input: dic haplotype truth, dic of a block (just those postion in truth),  dic of allel origin (PPPMM)
+	output: dic: key: 'last position'  val: dic
+
+	First, itried to name the key as the block numebr, but for combining the dicts in int main, i have problem
+	seperate a block to blocks which has no switch.
+	"""
+	dic_blocks_no_switch = {}
+	position_block = np.sort(list(dic_block_est_truth.keys()))
+	if ('P' in allele_origin_dic.values()) and ('M' in allele_origin_dic.values()):  # when  a switch exists.
+		for idx_pos, position in enumerate(position_block):
+			if not idx_pos:  # for first  idx_pos
+				dic_in = {}
+				dic_in[position] = dic_block_est_truth[position]
+			else:
+				if allele_origin_dic[position] == allele_origin_dic[position_block[idx_pos - 1]]:  # No switch
+					dic_in[position] = dic_block_est_truth[position]  # add one by one
+				else:  # untill a switch occurs. Then, close  dic_in and store it and create a new dic_in.
+					dic_blocks_no_switch[position_block[idx_pos - 1]] = dic_in
+					dic_in = {}
+					dic_in[position] = dic_block_est_truth[position]
+		dic_blocks_no_switch[position] = dic_in
+	else:
+		dic_blocks_no_switch[position_block[-1]] = dic_block_est_truth
+
+	return dic_blocks_no_switch
+
+
+
 
 
 if __name__ == "__main__":
@@ -304,38 +330,39 @@ if __name__ == "__main__":
 	dic_hap_estimated_alg2, set_idx2 = parse_hap_estimated_blocks(filename_hap_estimated_alg2, list_position)
 
 	# set_position_algortihm2 = set(dic_hap_estimated_alg2.keys)
-
-
-
 	dic_metrics1 = {'length_pure':[]}
 	dic_metrics1['correct_alleles'] = []
 	dic_metrics1['switch'] = []
 	dic_metrics1['switch_short'] = []
 	dic_metrics1['switch_long'] = []
-
 	dic_metrics2 = {'length_pure': []}
 	dic_metrics2['correct_alleles'] = []
 	dic_metrics2['switch'] = []
 	dic_metrics2['switch_short'] = []
 	dic_metrics2['switch_long'] = []
-
 	dic_metrics_cm = {'length_pure': []}
 	dic_metrics_cm['correct_alleles'] = []
 	dic_metrics_cm['switch'] = []
 	dic_metrics_cm['switch_short'] = []
 	dic_metrics_cm['switch_long'] = []
-	# span_blocks_adjusted = []
-	# span_block_adjusted_list_all = []
+	span_blocks_adjusted1 = []
+	span_blocks_adjusted2 = []
+	span_blocks_adjusted1_no_sw = []
+	span_blocks_adjusted2_no_sw = []
 
-	for num_block, dic_block in dic_hap_estimated_alg1.items():
-		[dic_block_estimated_truth, allele_origin_dic, metrics] = compare_dics(dic_hap_truth, dic_block)
-		[dic_block_estimated_truth_cm, allele_origin_dic_cm, metrics_cm]= compare_dics_common(dic_hap_truth, dic_block, set_idx2)
+	blocks_no_switch1 = {}
+	blocks_no_switch2 = {}
+	list_postion_truth = np.array(list(dic_hap_truth.keys()))
+
+	for dic_block in dic_hap_estimated_alg1.values():
+		[dic_block_estimated_truth1, allele_origin_dic1, metrics1] = compare_dics(dic_hap_truth, dic_block)
+		[dic_block_estimated_truth_cm, allele_origin_dic_cm, metrics_cm] = compare_dics_common(dic_hap_truth, dic_block, set_idx2)
 		# metrics = [num_correct_alleles, counts['switch'], counts['short_switch'], counts['long_switch']]
-		dic_metrics1['length_pure'].append(len(dic_block_estimated_truth))
-		dic_metrics1['correct_alleles'].append(metrics[0])
-		dic_metrics1['switch'].append(metrics[1])
-		dic_metrics1['switch_short'].append(metrics[2])
-		dic_metrics1['switch_long'].append(metrics[3])
+		dic_metrics1['length_pure'].append(len(dic_block_estimated_truth1))
+		dic_metrics1['correct_alleles'].append(metrics1[0])
+		dic_metrics1['switch'].append(metrics1[1])
+		dic_metrics1['switch_short'].append(metrics1[2])
+		dic_metrics1['switch_long'].append(metrics1[3])
 
 		dic_metrics_cm['length_pure'].append(len(dic_block_estimated_truth_cm))
 		dic_metrics_cm['correct_alleles'].append(metrics_cm[0])
@@ -343,17 +370,87 @@ if __name__ == "__main__":
 		dic_metrics_cm['switch_short'].append(metrics_cm[2])
 		dic_metrics_cm['switch_long'].append(metrics_cm[3])
 
-		qan = compare_dics_qan(dic_hap_truth, dic_block_estimated_truth, allele_origin_dic)
+
+		# calculate AN50 also for comm ??
+		if len(dic_block_estimated_truth1) > 0:
+			span_block_adjusted1 = calculate_adj_span(dic_block_estimated_truth1, list_postion_truth)
+			span_blocks_adjusted1.append(span_block_adjusted1)
+
+			dic_blocks_no_switch1 = extract_noswitch_blocks(dic_block_estimated_truth1, allele_origin_dic1)
+			# here can be changed ??
+			blocks_no_switch1.update(dic_blocks_no_switch1)
+	# a = sum(dic_metrics1['switch'])+len(dic_metrics1['length_pure'])  check shavad?? tedad kol blocks_no_switch
+
+	for dic_block in dic_hap_estimated_alg2.values():
+		[dic_block_estimated_truth2, allele_origin_dic2, metrics2] = compare_dics(dic_hap_truth, dic_block)
+		dic_metrics2['length_pure'].append(len(dic_block_estimated_truth2))
+		dic_metrics2['correct_alleles'].append(metrics2[0])
+		dic_metrics2['switch'].append(metrics2[1])
+		dic_metrics2['switch_short'].append(metrics2[2])
+		dic_metrics2['switch_long'].append(metrics2[3])
+
+		if len(dic_block_estimated_truth2) > 0:
+			span_block_adjusted2 = calculate_adj_span(dic_block_estimated_truth2, list_postion_truth)
+			span_blocks_adjusted2.append(span_block_adjusted2)
+
+			dic_blocks_no_switch2 = extract_noswitch_blocks(dic_block_estimated_truth2, allele_origin_dic2)
+			blocks_no_switch2.update(dic_blocks_no_switch2)
+
+
+	for dic_block in blocks_no_switch1.values():
+		[dic_block_estimated_truth_nos_1, allele_origin_dic1, metrics1] = compare_dics(dic_hap_truth, dic_block)
+		if len(dic_block_estimated_truth_nos_1) > 0:
+			span_block_adjusted1_no_sw = calculate_adj_span(dic_block_estimated_truth_nos_1, list_postion_truth)
+			span_blocks_adjusted1_no_sw.append(span_block_adjusted1_no_sw)
+		else:
+			span_blocks_adjusted2_no_sw.append(0)
+
+	for dic_block in blocks_no_switch2.values():
+		[dic_block_estimated_truth_nos_1, allele_origin_dic1, metrics1] = compare_dics(dic_hap_truth, dic_block)
+		if len(dic_block_estimated_truth_nos_1) > 0:
+			span_block_adjusted1_no_sw = calculate_adj_span(dic_block_estimated_truth_nos_1, list_postion_truth)
+			span_blocks_adjusted2_no_sw.append(span_block_adjusted1_no_sw)
+		else:
+			span_blocks_adjusted2_no_sw.append(0)
 
 
 
-	for num_block, dic_block in dic_hap_estimated_alg2.items():
-		[dic_block_estimated_truth, allele_origin_dic, metrics] = compare_dics(dic_hap_truth, dic_block)
-		dic_metrics2['length_pure'].append(len(dic_block_estimated_truth))
-		dic_metrics2['correct_alleles'].append(metrics[0])
-		dic_metrics2['switch'].append(metrics[1])
-		dic_metrics2['switch_short'].append(metrics[2])
-		dic_metrics2['switch_long'].append(metrics[3])
+
+	print('mean of block lengh alg1 is', np.round(np.mean(dic_metrics1['length_pure']), 4))
+	print('mean of block lengh alg2 is', np.round(np.mean(dic_metrics2['length_pure']), 4))
+	print('mean of block lengh alg1 comm is', np.round(np.mean(dic_metrics_cm['length_pure']), 4))
+
+	length_pure_sorted1 = np.sort(dic_metrics1['length_pure'])  # should i consider zero values ??
+	print(' N50 alg1 is ', length_pure_sorted1[round(float(len(length_pure_sorted1))/2)+1])
+	length_pure_sorted2 = np.sort(dic_metrics2['length_pure'])  # should i consider zero values ??
+
+	print(' N50 alg2 is ', length_pure_sorted2[round(float(len(length_pure_sorted2)) / 2 - .001) + 1])
+	length_pure_sorted_cm = np.sort(dic_metrics_cm['length_pure'])  # should i consider zero values ??
+	print(' N50 alg1 comm is ', length_pure_sorted_cm[round(float(len(length_pure_sorted_cm)) / 2) + 1])
+
+
+
+	#print(span_blocks_adjusted)
+	span_blocks_adjusted_sorted1 = np.sort(span_blocks_adjusted1)
+	span_blocks_adjusted_sorted_revr1 = span_blocks_adjusted_sorted1[::-1]
+	print('AN50 alg1 is ', span_blocks_adjusted_sorted_revr1[round(len(span_blocks_adjusted_sorted_revr1)/2)])  # think more  ??
+
+	span_blocks_adjusted_sorted2 = np.sort(span_blocks_adjusted2)
+	span_blocks_adjusted_sorted_revr2 = span_blocks_adjusted_sorted2[::-1]
+	print('AN50 alg2 is ', span_blocks_adjusted_sorted_revr2[round(len(span_blocks_adjusted_sorted_revr2) / 2)])
+
+	span_blocks_adjusted_sorted1_no_sw = np.sort(span_blocks_adjusted1_no_sw)
+	span_blocks_adjusted_sorted_revr1_no_sw = span_blocks_adjusted_sorted1_no_sw[::-1]
+	print('QAN50 alg1 is ', span_blocks_adjusted_sorted_revr1_no_sw[round(len(span_blocks_adjusted_sorted_revr1_no_sw) / 2)])  # think more  ??
+
+	span_blocks_adjusted_sorted2_no_sw = np.sort(span_blocks_adjusted2_no_sw)
+	span_blocks_adjusted_sorted_revr2_no_sw = span_blocks_adjusted_sorted2_no_sw[::-1]
+	print('QAN50 alg2 is ', span_blocks_adjusted_sorted_revr2_no_sw[round(len(span_blocks_adjusted_sorted_revr2_no_sw) / 2)])  # think more  ??
+
+	#
+	# span_block_adjusted_list_all_sorted = np.sort(span_block_adjusted_list_all)
+	# span_blocks_adjusted_sorted_all_revr = span_block_adjusted_list_all_sorted[::-1]
+	# print('QAN50 is ', span_blocks_adjusted_sorted_all_revr[round(len(span_blocks_adjusted_sorted_all_revr)/2)]) # think more  ??
 
 
 
@@ -390,6 +487,9 @@ if __name__ == "__main__":
 	print('mean of swer long all blocks is ', np.round(np.mean(blocks_swer_long_cm), 4))
 
 
+
+
+
 	# block_num_correct_alleles, block_length_pure, block_num_switch, block_num_switch_short, block_num_switch_long, span_block_adjusted, span_block_adjusted_list
 
 
@@ -405,27 +505,12 @@ if __name__ == "__main__":
 	#
 
 # print('number of block estimated containing estimation', len(blocks_length_pure))
-	#
-	#
 	# print('sum of block lengh is', sum(blocks_length_pure))
-	# print('mean of block lengh is', np.round(np.mean(blocks_length_pure), 4))
 	# print('coverage of genome is ', np.round(float(sum(blocks_length_pure))/len(dic_hap_truth),4))
-	#
-
-	# print('sum of short switches ', sum(blocks_num_switch_short))
+# print('sum of short switches ', sum(blocks_num_switch_short))
 	# print('sum of long switches ', sum(blocks_num_switch_long))
 	# print('sum of switches ', sum(blocks_num_switch))
 	# blocks_length_pure_sorted = np.sort(blocks_length_pure)
-	# # print(' N50 is ', blocks_length_pure_sorted[round(float(len(blocks_length_pure_sorted))/2)+1])
-	#
-	# #print(span_blocks_adjusted)
-	# span_blocks_adjusted_sorted = np.sort(span_blocks_adjusted)
-	# span_blocks_adjusted_sorted_revr = span_blocks_adjusted_sorted[::-1]
-	# print('AN50 is ', span_blocks_adjusted_sorted_revr[round(len(span_blocks_adjusted_sorted_revr)/2)]) # think more  ??
-	#
-	# span_block_adjusted_list_all_sorted = np.sort(span_block_adjusted_list_all)
-	# span_blocks_adjusted_sorted_all_revr = span_block_adjusted_list_all_sorted[::-1]
-	# print('QAN50 is ', span_blocks_adjusted_sorted_all_revr[round(len(span_blocks_adjusted_sorted_all_revr)/2)]) # think more  ??
 
 
-	#  Remove blocks with length of less than two
+	#  Remove blocks with length of less than two ??
